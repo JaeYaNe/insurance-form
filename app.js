@@ -1,7 +1,8 @@
-import { APP_PIN, PAYMENT_METHODS, RELATIONS, CONSENT_TEXT, IDLE_RESET_MS } from './config.js';
+import { APP_PIN, EMAIL_DOMAINS, RELATIONS, CONSENT_TEXT, IDLE_RESET_MS } from './config.js';
 import {
   validateRecord, isNonEmpty, isValidPhone, isValidRRN, isValidEmail,
-  maskRRN, maskAccount, buildCsv, withBom, buildFilename,
+  maskRRN, maskAccount, buildCsv, withBom, buildFilename, CSV_COLUMNS, recordToRow,
+  formatPhone, formatRRN,
 } from './lib.js';
 
 const MAX_BENEFICIARIES = 3;
@@ -11,10 +12,10 @@ function emptyData() {
   return {
     consent: false,
     name: '', birth: '', phone: '', email: '', address: '', rrn: '', job: '',
+    emailLocal: '', emailDomain: '', emailCustom: '',
     insured: { name: '', relation: '', sameAsApplicant: false },
     beneficiaries: [{ name: '', relation: '', phone: '' }],
     account: { bank: '', number: '', holder: '' },
-    payment: '',
     createdAt: '',
   };
 }
@@ -88,16 +89,38 @@ function tplStep1() {
     ${textField('f-name', '이름', d.name, true, 'text')}
     ${textField('f-birth', '생년월일', d.birth, false, 'date')}
     ${textField('f-phone', '연락처', d.phone, true, 'tel', '010-0000-0000')}
-    ${textField('f-email', '이메일', d.email, false, 'email')}
+    <div class="field">
+      <label for="f-email-local">이메일</label>
+      <div class="row2">
+        <input id="f-email-local" type="text" value="${escapeAttr(d.emailLocal)}" placeholder="아이디" autocomplete="off" />
+        <select id="f-email-domain">
+          <option value="" ${d.emailDomain === '' ? 'selected' : ''}>@ 도메인 선택</option>
+          ${EMAIL_DOMAINS.map((dm) => `<option value="${dm}" ${d.emailDomain === dm ? 'selected' : ''}>@${dm}</option>`).join('')}
+          <option value="__custom__" ${d.emailDomain === '__custom__' ? 'selected' : ''}>직접 입력</option>
+        </select>
+      </div>
+      <input id="f-email-custom" class="${d.emailDomain === '__custom__' ? '' : 'hidden'}" type="text" value="${escapeAttr(d.emailCustom)}" placeholder="도메인 직접 입력 (예: company.co.kr)" style="margin-top:8px" autocomplete="off" />
+      <div class="err" id="err-f-email"></div>
+    </div>
     ${textField('f-address', '주소', d.address, false, 'text')}
   `;
+}
+function composeEmail() {
+  const dm = data.emailDomain === '__custom__' ? data.emailCustom.trim() : data.emailDomain;
+  data.email = (data.emailLocal.trim() && dm) ? `${data.emailLocal.trim()}@${dm}` : '';
 }
 function bindStep1() {
   el('f-consent').addEventListener('change', (e) => { data.consent = e.target.checked; });
   bindText('f-name', (v) => data.name = v);
   bindText('f-birth', (v) => data.birth = v);
-  bindText('f-phone', (v) => data.phone = v);
-  bindText('f-email', (v) => data.email = v);
+  bindFormatted('f-phone', formatPhone, (v) => data.phone = v);
+  bindText('f-email-local', (v) => { data.emailLocal = v; composeEmail(); });
+  el('f-email-domain').addEventListener('change', (e) => {
+    data.emailDomain = e.target.value;
+    el('f-email-custom').classList.toggle('hidden', data.emailDomain !== '__custom__');
+    composeEmail(); markIdle();
+  });
+  bindText('f-email-custom', (v) => { data.emailCustom = v; composeEmail(); });
   bindText('f-address', (v) => data.address = v);
 }
 
@@ -113,7 +136,11 @@ function tplStep2() {
         <span class="muted">가입자와 동일</span>
         <button type="button" class="toggle ${d.insured.sameAsApplicant ? 'on' : ''}" id="f-insured-same" aria-pressed="${d.insured.sameAsApplicant}"></button>
       </div>
-      ${textField('f-insured-name', '피보험자 이름', d.insured.name, false, 'text')}
+      <div class="field">
+        <label for="f-insured-name">피보험자 이름</label>
+        <input id="f-insured-name" type="text" value="${escapeAttr(d.insured.name)}" ${d.insured.sameAsApplicant ? 'disabled' : ''} />
+        <div class="err" id="err-f-insured-name"></div>
+      </div>
       <label class="muted" style="font-weight:600">관계</label>
       ${chips('insured-rel', d.insured.relation)}
     </div>
@@ -129,12 +156,6 @@ function tplStep2() {
         ${textField('f-holder', '예금주', d.account.holder, false, 'text')}
       </div>
       ${textField('f-accnum', '계좌번호', d.account.number, false, 'text')}
-    </div>
-    <div class="field">
-      <label>결제수단</label>
-      <div class="segment" id="f-payment">
-        ${PAYMENT_METHODS.map((p) => `<button type="button" data-v="${p}" class="${d.payment === p ? 'on' : ''}">${p}</button>`).join('')}
-      </div>
     </div>
   `;
 }
@@ -153,11 +174,12 @@ function tplBene(b, i) {
     </div>`;
 }
 function bindStep2() {
-  bindText('f-rrn', (v) => data.rrn = v);
+  bindFormatted('f-rrn', formatRRN, (v) => data.rrn = v);
   bindText('f-job', (v) => data.job = v);
   el('f-insured-same').addEventListener('click', () => {
     data.insured.sameAsApplicant = !data.insured.sameAsApplicant;
     if (data.insured.sameAsApplicant) {
+      // 가입자와 동일: 본인 정보 자동 입력
       data.insured.name = data.name;
       data.insured.relation = '본인';
     }
@@ -168,7 +190,7 @@ function bindStep2() {
 
   data.beneficiaries.forEach((_, i) => {
     bindText(`f-bname-${i}`, (v) => data.beneficiaries[i].name = v);
-    bindText(`f-bphone-${i}`, (v) => data.beneficiaries[i].phone = v);
+    bindFormatted(`f-bphone-${i}`, formatPhone, (v) => data.beneficiaries[i].phone = v);
     bindChips(`bene-rel-${i}`, (v) => data.beneficiaries[i].relation = v);
   });
   el('bene-list').querySelectorAll('[data-rm]').forEach((btn) => {
@@ -188,13 +210,6 @@ function bindStep2() {
   bindText('f-bank', (v) => data.account.bank = v);
   bindText('f-holder', (v) => data.account.holder = v);
   bindText('f-accnum', (v) => data.account.number = v);
-  el('f-payment').querySelectorAll('button').forEach((btn) => {
-    btn.addEventListener('click', () => {
-      data.payment = btn.dataset.v;
-      el('f-payment').querySelectorAll('button').forEach((b) => b.classList.remove('on'));
-      btn.classList.add('on');
-    });
-  });
 }
 
 // Step3 요약 ----------------------------------------------------
@@ -208,7 +223,6 @@ function tplStep3() {
     ['피보험자', `${d.insured.name || '-'} (${d.insured.relation || '-'})${d.insured.sameAsApplicant ? ' · 가입자동일' : ''}`],
     ['수익자', d.beneficiaries.filter((b) => isNonEmpty(b.name)).map((b) => `${b.name}(${b.relation || '-'})`).join(', ') || '-'],
     ['납입계좌', `${d.account.bank || '-'} ${maskAccount(d.account.number)} ${d.account.holder || ''}`.trim()],
-    ['결제수단', d.payment || '-'],
   ];
   return `
     <p class="muted">입력 내용을 확인하세요. 저장 시 전체 데이터가 CSV 파일로 다운로드됩니다.</p>
@@ -232,6 +246,17 @@ function chips(group, current) {
 function bindText(id, setter) {
   const node = el(id);
   if (node) node.addEventListener('input', (e) => { setter(e.target.value); markIdle(); });
+}
+// 입력 즉시 자동 서식화(숫자만 허용 + 하이픈). 커서는 끝으로 이동.
+function bindFormatted(id, formatter, setter) {
+  const node = el(id);
+  if (!node) return;
+  node.addEventListener('input', (e) => {
+    const formatted = formatter(e.target.value);
+    e.target.value = formatted;
+    setter(formatted);
+    markIdle();
+  });
 }
 function bindChips(group, setter) {
   const box = document.querySelector(`[data-group="${group}"]`);
@@ -259,7 +284,12 @@ function showFieldError(inputId, msg) {
 function validateStep1() {
   clearErrors();
   let ok = true;
-  if (!data.consent) { alertToast('개인정보 수집·이용 동의가 필요합니다.'); ok = false; }
+  if (!data.consent) {
+    alertToast('개인정보 수집·이용 동의가 필요합니다.');
+    const c = el('f-consent');
+    if (c) { c.focus(); c.scrollIntoView({ behavior: 'smooth', block: 'center' }); }
+    ok = false;
+  }
   if (!isNonEmpty(data.name)) { showFieldError('f-name', '이름을 입력하세요.'); ok = false; }
   if (!isValidPhone(data.phone)) { showFieldError('f-phone', '연락처 형식이 올바르지 않습니다.'); ok = false; }
   if (isNonEmpty(data.email) && !isValidEmail(data.email)) { showFieldError('f-email', '이메일 형식이 올바르지 않습니다.'); ok = false; }
@@ -359,7 +389,26 @@ function initDone() {
   el('btn-redownload').addEventListener('click', () => {
     if (!download(lastCsv, lastFilename)) alertToast('다운로드에 실패했습니다.', () => download(lastCsv, lastFilename));
   });
+  el('btn-pdf').addEventListener('click', exportPdf);
   el('btn-restart').addEventListener('click', startForm);
+}
+
+// PDF 저장(선택): 2×n 표(항목/값)를 새 창에 렌더링 후 브라우저 인쇄(PDF로 저장) 호출.
+// 외부 라이브러리 없이 한글을 안전하게 렌더링하기 위해 시스템 폰트 기반 print를 사용한다.
+function exportPdf() {
+  const row = recordToRow(data);
+  const body = CSV_COLUMNS.map((c, i) => `<tr><th>${escapeHtml(c)}</th><td>${escapeHtml(row[i] || '')}</td></tr>`).join('');
+  const w = window.open('', '_blank');
+  if (!w) { alertToast('팝업이 차단되어 PDF를 열 수 없습니다. 팝업을 허용해주세요.'); return; }
+  const title = escapeHtml(lastFilename.replace(/\.csv$/, ''));
+  w.document.write(`<!DOCTYPE html><html lang="ko"><head><meta charset="utf-8"><title>${title}</title>` +
+    '<style>body{font-family:system-ui,"Malgun Gothic",sans-serif;padding:24px;color:#1f2430}' +
+    'h1{font-size:18px;margin:0 0 12px}table{border-collapse:collapse;width:100%;font-size:13px}' +
+    'th,td{border:1px solid #cbd0dd;padding:8px 10px;text-align:left;vertical-align:top}' +
+    'th{background:#f4f6fb;width:35%;white-space:nowrap}@media print{@page{margin:16mm}}</style>' +
+    `</head><body><h1>개인정보 입력 내역</h1><table><tbody>${body}</tbody></table>` +
+    '<script>window.onload=function(){setTimeout(function(){window.print();},100);};<\/script></body></html>');
+  w.document.close();
 }
 
 // 토스트 -------------------------------------------------------

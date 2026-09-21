@@ -2,8 +2,8 @@
 // PIN은 실제 인증이 아니라 우발적 접근 차단용(대면 사용 전제)이며 교체를 쉽게 하려고 여기 격리한다.
 export const APP_PIN = '1234';
 
-// 결제수단 옵션(잔여 오픈 항목: 정식 값은 업무 확정 후 교체). README 명시.
-export const PAYMENT_METHODS = ['자동이체(CMS)', '신용카드', '계좌이체', '가상계좌'];
+// 이메일 도메인 선택 옵션(한국 대표 메일 + 직접 입력).
+export const EMAIL_DOMAINS = ['naver.com', 'gmail.com', 'daum.net', 'hanmail.net', 'kakao.com', 'nate.com'];
 
 // 관계 선택 칩(피보험자/수익자 공용).
 export const RELATIONS = ['본인', '배우자', '자녀', '부모', '형제자매', '기타'];
@@ -14,4 +14,4 @@ export const CONSENT_TEXT =
   '수집 항목은 본 화면에 입력한 정보이며, 동의 거부 시 상담 진행이 제한될 수 있습니다.';
 
 // 자동 초기화까지의 유휴 시간(ms). 완료/유휴 시 화면·메모리를 비운다.
-export const IDLE_RESET_MS = 3 * 60 * 1000;
+export const IDLE_RESET_MS = 60 * 60 * 1000;

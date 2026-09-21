@@ -98,6 +98,25 @@ body {
   border-color: var(--blue);
   box-shadow: 0 0 0 3px var(--blue-weak);
 }
+.field select {
+  width: 100%;
+  padding: 11px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-ctrl);
+  font-size: 14px;
+  background: #fff;
+  color: var(--text);
+  transition: border-color var(--dur) ease, box-shadow var(--dur) ease;
+}
+.field select:focus {
+  outline: none;
+  border-color: var(--blue);
+  box-shadow: 0 0 0 3px var(--blue-weak);
+}
+.field input:disabled {
+  background: var(--bg);
+  color: var(--muted);
+}
 .field .err {
   color: var(--danger);
   font-size: 12px;

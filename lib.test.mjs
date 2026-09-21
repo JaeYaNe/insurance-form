@@ -4,6 +4,7 @@ import {
   CSV_COLUMNS, isNonEmpty, isValidRRN, isValidPhone, isValidEmail,
   maskRRN, maskAccount, csvEscape, recordToRow, buildCsv, withBom,
   formatDateYYYYMMDD, phoneLast4, buildFilename, validateRecord,
+  formatPhone, formatRRN,
 } from './lib.js';
 
 test('isValidRRN: 하이픈 유무 모두 통과, 자릿수 오류 실패', () => {
@@ -41,11 +42,28 @@ test('csvEscape: 쉼표/따옴표/개행 처리', () => {
   assert.equal(csvEscape('그는 "말"했다'), '"그는 ""말""했다"');
 });
 
-test('CSV_COLUMNS: 컬럼 수/순서 고정(수익자 1~3)', () => {
-  assert.equal(CSV_COLUMNS.length, 25);
+test('CSV_COLUMNS: 컬럼 수/순서 고정(수익자 1~3, 결제수단 제거)', () => {
+  assert.equal(CSV_COLUMNS.length, 24);
   assert.equal(CSV_COLUMNS[0], '동의여부');
   assert.equal(CSV_COLUMNS.includes('수익자3_연락처'), true);
+  assert.equal(CSV_COLUMNS.includes('결제수단'), false);
   assert.equal(CSV_COLUMNS[CSV_COLUMNS.length - 1], '작성일시');
+});
+
+test('formatPhone: 숫자만 + 3-4-4 자동 하이픈, 11자리 상한', () => {
+  assert.equal(formatPhone('01012345678'), '010-1234-5678');
+  assert.equal(formatPhone('010abc1234def5678'), '010-1234-5678');
+  assert.equal(formatPhone('0101234'), '010-1234');
+  assert.equal(formatPhone('010123456789'), '010-1234-5678');
+  assert.equal(formatPhone('0212345678'), '021-234-5678');
+});
+
+test('formatRRN: 숫자만 + 6-7 자동 하이픈, 13자리 상한', () => {
+  assert.equal(formatRRN('9001011234567'), '900101-1234567');
+  assert.equal(formatRRN('900101-1234567'), '900101-1234567');
+  assert.equal(formatRRN('90010112345678'), '900101-1234567');
+  assert.equal(formatRRN('900101'), '900101');
+  assert.equal(formatRRN('9001011'), '900101-1');
 });
 
 const sample = {
@@ -55,7 +73,6 @@ const sample = {
   insured: { name: '홍길동', relation: '본인', sameAsApplicant: true },
   beneficiaries: [{ name: '김철수', relation: '자녀', phone: '010-0000-1111' }],
   account: { bank: '국민', number: '110123456789', holder: '홍길동' },
-  payment: '자동이체(CMS)',
   createdAt: '2026-09-21 10:00:00',
 };
 
@@ -74,7 +91,7 @@ test('buildCsv + withBom: BOM 선두 + 헤더/행', () => {
   assert.equal(csv.charCodeAt(0), 0xFEFF);
   const body = csv.slice(1);
   const [head, row] = body.split('\r\n');
-  assert.equal(head.split(',').length >= 25, true);
+  assert.equal(head.split(',').length, 24);
   assert.equal(row.includes('"서울, 강남"'), true); // 이스케이프 확인
 });
 

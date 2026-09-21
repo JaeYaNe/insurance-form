@@ -9,7 +9,7 @@ export const CSV_COLUMNS = [
   '수익자1_이름', '수익자1_관계', '수익자1_연락처',
   '수익자2_이름', '수익자2_관계', '수익자2_연락처',
   '수익자3_이름', '수익자3_관계', '수익자3_연락처',
-  '납입계좌_은행', '납입계좌_번호', '납입계좌_예금주', '결제수단',
+  '납입계좌_은행', '납입계좌_번호', '납입계좌_예금주',
   '작성일시',
 ];
 
@@ -32,6 +32,28 @@ export function isValidPhone(value) {
 // 이메일(선택 입력 시에만 검증).
 export function isValidEmail(value) {
   return /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test((value || '').trim());
+}
+
+// 입력 자동 서식화 --------------------------------------------
+
+// 숫자만 남기고 휴대전화 형식으로 자동 하이픈(3-4-4, 10자리는 3-3-4). 최대 11자리.
+export function formatPhone(value) {
+  const d = (value || '').replace(/\D/g, '').slice(0, 11);
+  if (d.length < 4) return d;
+  if (d.length < 8) {
+    // 10자리 계열: 3-3-4 구간(중간 입력 중)
+    const mid = d.length <= 7 ? d.length - 3 : 3;
+    return `${d.slice(0, 3)}-${d.slice(3, 3 + mid)}`;
+  }
+  if (d.length === 10) return `${d.slice(0, 3)}-${d.slice(3, 6)}-${d.slice(6)}`;
+  return `${d.slice(0, 3)}-${d.slice(3, 7)}-${d.slice(7)}`;
+}
+
+// 숫자만 남기고 주민번호 13자리를 6-7로 자동 하이픈.
+export function formatRRN(value) {
+  const d = (value || '').replace(/\D/g, '').slice(0, 13);
+  if (d.length <= 6) return d;
+  return `${d.slice(0, 6)}-${d.slice(6)}`;
 }
 
 // 화면 표시용 마스킹(저장값은 원문 유지). 뒷자리만 가린다.
@@ -82,7 +104,6 @@ export function recordToRow(data) {
     account.bank || '',
     account.number || '',
     account.holder || '',
-    data.payment || '',
     data.createdAt || '',
   ];
 }
