@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
+  <meta name="robots" content="noindex, nofollow" />
+  <title>개인정보 입력</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="wrap">
+    <!-- PIN 게이트 -->
+    <section id="gate" class="card gate">
+      <div class="done-mark">🔒</div>
+      <h1>접근 확인</h1>
+      <p class="muted">담당 설계사에게 전달받은 PIN을 입력하세요.</p>
+      <div class="field" style="margin-top:16px">
+        <input id="pin-input" type="tel" inputmode="numeric" autocomplete="off" placeholder="••••" aria-label="PIN" />
+        <div class="err" id="pin-err"></div>
+      </div>
+      <button class="btn primary" id="pin-submit">확인</button>
+    </section>
+
+    <!-- 폼 -->
+    <section id="form" class="card hidden">
+      <div class="card-head">
+        <h1 id="step-title">개인정보 입력</h1>
+        <span class="muted" id="step-count" style="margin-left:auto"></span>
+      </div>
+      <div class="progress"><span id="progress-bar"></span></div>
+      <div id="step-body"></div>
+      <div class="actions">
+        <button class="btn hidden" id="btn-prev">이전</button>
+        <button class="btn primary" id="btn-next">다음</button>
+      </div>
+    </section>
+
+    <!-- 완료 -->
+    <section id="done" class="card center hidden">
+      <div class="done-mark">✓</div>
+      <h1>저장 완료</h1>
+      <p class="muted">아래 파일이 기기 다운로드 경로에 저장되었습니다.</p>
+      <p class="filename" id="done-filename"></p>
+      <div class="preview-wrap"><table class="preview" id="done-preview"></table></div>
+      <div class="actions" style="flex-direction:column">
+        <button class="btn primary" id="btn-redownload">다시 다운로드</button>
+        <button class="btn" id="btn-restart">처음부터 다시</button>
+      </div>
+    </section>
+  </div>
+
+  <div class="toast" id="toast">
+    <span id="toast-msg"></span>
+    <button id="toast-action" class="hidden">재시도</button>
+  </div>
+
+  <script type="module" src="app.js"></script>
+</body>
+</html>

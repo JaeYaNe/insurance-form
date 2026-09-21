@@ -1,0 +1,10 @@
+{
+  "name": "insurance-form",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "보험설계사용 개인정보 입력 정적 페이지",
+  "scripts": {
+    "test": "node --test"
+  }
+}
